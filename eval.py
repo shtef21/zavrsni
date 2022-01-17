@@ -81,3 +81,18 @@ for idx, model_filename in enumerate(models):
 print()
 print('Accuracies:')
 pprint(sorted(list(acc_dict.items()), key=lambda e: e[1]))
+
+# 2021-01-17
+"""
+Accuracies:
+[('Resnet18_drop_25_224px-lr_scheduler-best', 95.5962),
+ ('ProfNet-best', 95.524),
+ ('MnistSimpleCNN_3x3-best', 95.0144),
+ ('ResidualNet-best', 94.8798),
+ ('Resnet18_drop_25-lr_scheduler-best', 94.8798),
+ ('MnistSimpleCNN_5x5-best', 94.8606),
+ ('ConvNet-best', 94.7692),
+ ('Resnet18_drop_50_224px-best', 4.0288),
+ ('Resnet18_drop_75_224px-best', 3.8462),
+ ('Resnet18_drop_25_224px-best', 3.5625)]
+"""
