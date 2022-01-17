@@ -1,16 +1,22 @@
 import torch 
 import torchvision
-import torch.functional as F
+import torch.nn.functional as F
 from torch import nn 
 
-"""Models
+"""
+Models
 - ConvNet
 - ResidualNet
 - ProfNet
 - MnistSimpleCNN
+  -> https://arxiv.org/pdf/2008.10400v2.pdf
 - SimpleNetv1
+  -> https://arxiv.org/pdf/1608.06037v7.pdf
 - Resnet18
-- Resnet18_dropout
+  -> https://arxiv.org/pdf/1512.03385.pdf
+- Resnet18_dd
+  -> Resnet18
+  -> Depth Dropout: https://users.cecs.anu.edu.au/~sgould/papers/dicta16-depthdropout.pdf
 """
 
 # Generic classes
@@ -52,8 +58,7 @@ class LinearBlock(nn.Module):
     x = self.drop(x)
     return x
 
-"""##### ConvNet"""
-
+"""ConvNet"""
 class ConvNet(nn.Module):
 
   def __init__(self, output_size=27):
@@ -202,9 +207,9 @@ class SimpleNetv1_block(nn.Module):
 """
 SimpleNetv1
 
-https://paperswithcode.com/paper/lets-keep-it-simple-using-simple
-
-https://raw.githubusercontent.com/Coderx7/SimpleNet/master/SimpNet_V1/images(plots)/SimpleNet_Arch_Larged.jpg
+- https://paperswithcode.com/paper/lets-keep-it-simple-using-simple
+- https://arxiv.org/pdf/1608.06037v7.pdf
+- https://raw.githubusercontent.com/Coderx7/SimpleNet/master/SimpNet_V1/images(plots)/SimpleNet_Arch_Larged.jpg
 """
 class SimpleNetv1(nn.Module):
   
@@ -249,6 +254,8 @@ class SimpleNetv1(nn.Module):
 
 """
 Resnet18
+
+- https://arxiv.org/pdf/1512.03385.pdf
 """
 class Resnet18_EMNIST(nn.Module):
 
@@ -271,7 +278,7 @@ Resnet18_dropout building block
 """
 class Resnet18_dd_block(nn.Module):
 
-  def __init__(self, ch_in, ch_rest, dropout_p=0):
+  def __init__(self, ch_in, ch_rest, dropout_p=0, out_drop=False):
     super(Resnet18_dd_block, self).__init__()
     
     downsample = True if dropout_p != 0 else False
@@ -281,6 +288,8 @@ class Resnet18_dd_block(nn.Module):
     self.relu = nn.ReLU(inplace=True)
     self.conv2 = nn.Conv2d(ch_rest, ch_rest, 3, padding=1, bias=False)
     self.bn2 = nn.BatchNorm2d(ch_rest)
+    self.final_drop = nn.Dropout2d(p=0.1) if out_drop else None
+
     if downsample:
       self.downsample = nn.Sequential(
           nn.Conv2d(ch_in, ch_rest, 1, 2, bias=False),
@@ -303,6 +312,8 @@ class Resnet18_dd_block(nn.Module):
 
     out += x_identity 
     out = self.relu(out)
+    if self.final_drop != None:
+      out = self.final_drop(out)
     return out
 
 """
@@ -315,7 +326,7 @@ Drop prob.: residual_drop_p in [ 0.25, 0.5, 0.75 ]
 """
 class Resnet18_dd(nn.Module):
 
-  def __init__(self, output_size, residual_drop_p, in_channels=3):
+  def __init__(self, output_size, residual_drop_p, in_channels=3, out_drop=False):
     super(Resnet18_dd, self).__init__()
     assert residual_drop_p in [ 0.25, 0.5, 0.75 ], 'Invalid depth dropout rate.'
 
@@ -324,20 +335,20 @@ class Resnet18_dd(nn.Module):
     self.relu = nn.ReLU(inplace=True)
     self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
     self.layer1 = nn.Sequential(
-        Resnet18_dd_block(ch_in=64, ch_rest=64),
-        Resnet18_dd_block(ch_in=64, ch_rest=64),
+        Resnet18_dd_block(64, 64, out_drop=out_drop),
+        Resnet18_dd_block(64, 64, out_drop=out_drop),
     )
     self.layer2 = nn.Sequential(
-        Resnet18_dd_block(ch_in=64, ch_rest=128, dropout_p=residual_drop_p),
-        Resnet18_dd_block(ch_in=128, ch_rest=128),
+        Resnet18_dd_block(64, 128, residual_drop_p, out_drop),
+        Resnet18_dd_block(128, 128, out_drop=out_drop),
     )
     self.layer3 = nn.Sequential(
-        Resnet18_dd_block(ch_in=128, ch_rest=256, dropout_p=residual_drop_p),
-        Resnet18_dd_block(ch_in=256, ch_rest=256),
+        Resnet18_dd_block(128, 256, residual_drop_p, out_drop),
+        Resnet18_dd_block(256, 256, out_drop=out_drop),
     )
     self.layer4 = nn.Sequential(
-        Resnet18_dd_block(ch_in=256, ch_rest=512, dropout_p=residual_drop_p),
-        Resnet18_dd_block(ch_in=512, ch_rest=512),
+        Resnet18_dd_block(256, 512, residual_drop_p, out_drop),
+        Resnet18_dd_block(512, 512, out_drop=out_drop),
     )
     self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
     self.fc = nn.Linear(512, output_size)
@@ -357,6 +368,7 @@ class Resnet18_dd(nn.Module):
     x = torch.flatten(x, 1)
     x = self.fc(x)
     return x
+
 
 """ProfNet"""
 class ProfNet(nn.Module):

@@ -36,3 +36,4 @@ runs
 *.app
 *.chk
 *.png
+*.pyc

@@ -6,9 +6,9 @@ import torchvision.datasets as torch_datasets
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from test import test as test_model
+import test as test_model
 import os 
-import tqdm 
+from tqdm import tqdm 
 
 def train(model, name, epochs, root, **kwargs):
   """
@@ -16,6 +16,7 @@ def train(model, name, epochs, root, **kwargs):
       trainset, testset (default: ExtendedEmnist)
       batch_size (default: 256)
       optimizer (default: Adam)
+      use_scheduler (default: False) - if True, use StepLR
   """
 
   def argtry(arg, default=None):
@@ -27,8 +28,9 @@ def train(model, name, epochs, root, **kwargs):
   cuda = torch.cuda.is_available()
   device = 'cuda' if cuda else 'cpu'
   batch_size = argtry('batch_size', 256)
+  use_scheduler = argtry('use_scheduler', False)
 
-  # Setup dataset
+  # Dataset
   trainset = argtry('trainset')
   testset = argtry('testset')
   if trainset == None or testset == None:
@@ -39,16 +41,22 @@ def train(model, name, epochs, root, **kwargs):
     trainset = torch_datasets.EMNIST('data', split='letters', train=True, download=True, transform=transform)
     testset = torch_datasets.EMNIST('data', split='letters', train=False, download=True, transform=transform)
     
-  # Setup dataloaders
+  # Dataloaders
   train_loader = DataLoader(trainset, batch_size=batch_size, pin_memory=True, shuffle=True)
   test_loader = DataLoader(testset, batch_size=32, pin_memory=True)
 
-  # Setup main objects
+  # Model
   model = model.to(device)
   loss_fn = nn.CrossEntropyLoss().to(device)
   optimizer = argtry('optimizer', optim.Adam(model.parameters()))
+  lr_scheduler = None 
 
+  if use_scheduler:
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, 10)
+
+  # Current epoch stats
   curr_acc, epoch, batch_acc = 0, 0, 0
+  # Best epoch stats
   best_acc, best_epoch = 0, 0
   chk_path = f'{root}/checkpoints/{name}.chk'
   chk_best_path = f'{root}/checkpoints/{name}-best.chk'
@@ -60,7 +68,7 @@ def train(model, name, epochs, root, **kwargs):
     model.load_state_dict(chk['model'])
     loss_fn.load_state_dict(chk['loss_fn'])
     optimizer.load_state_dict(chk['optimizer'])
-    chk_acc = chk['accuracy']
+    curr_acc = chk['accuracy']
     print('Loaded model. ', end='')
 
   # Load best model
@@ -79,7 +87,7 @@ def train(model, name, epochs, root, **kwargs):
     print(' -> Best accuracy was more than 15 epochs ago. Leaving...')
     return
 
-  # Initialize writer if training won't be skipped
+  # Initialize writer if training isn't done
   if epoch < epochs:
     writer = SummaryWriter(f'{root}/runs/{name}')
 
@@ -118,5 +126,9 @@ def train(model, name, epochs, root, **kwargs):
       writer.add_scalar('loss', loss.item(), global_step)
       writer.add_scalar('acc', batch_acc, global_step)
 
+  # Scheduler step
+  if use_scheduler:
+    lr_scheduler.step()
+
   # Test model after each epoch
-  test_model(model, test_loader, device, writer, e, loss_fn, optimizer, chk_path, chk_best_path, best_acc)
+  test_model.test(model, test_loader, device, writer, e, loss_fn, optimizer, chk_path, chk_best_path, best_acc)
