@@ -1,6 +1,10 @@
 # Prerequisites
 *.d
 
+# Folder
+data
+runs
+
 # Compiled Object files
 *.slo
 *.lo
@@ -30,3 +34,5 @@
 *.exe
 *.out
 *.app
+*.chk
+*.png
