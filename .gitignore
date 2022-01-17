@@ -34,6 +34,7 @@ runs
 *.exe
 *.out
 *.app
+
+# Others
 *.chk
-*.png
 *.pyc
