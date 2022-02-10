@@ -13,7 +13,7 @@ from tqdm import tqdm
 def train(model, name, epochs, root, **kwargs):
   """
     Custom parameters in kwargs:
-      trainset, testset (default: ExtendedEmnist)
+      trainset, testset (default: EMNIST)
       batch_size (default: 256)
       optimizer (default: Adam)
       use_scheduler (default: False) - if True, use StepLR
