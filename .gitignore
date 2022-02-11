@@ -39,3 +39,4 @@ runs
 *.chk
 *.pyc
 Seminar/~$*
+*.tmp
